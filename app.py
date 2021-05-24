@@ -97,8 +97,12 @@ def most_active_station():
     # Create our session (link) from Python to the DB
     session = Session(engine)
 
+    """Return the observed temperatures of the most active station"""
     # Query the dates and temperature observations of the most active station for the last year of data
-    tobs_results = session.query(Measurement.date, Measurement.tobs).filter(Measurement.station == 'USC00519281').filter(Measurement.date >= '2016-08-23').all()
+    tobs_results = session.query(Measurement.date, Measurement.tobs).filter(Measurement.station == 'USC00519281').\
+                   filter(Measurement.date >= '2016-08-23').all()
+    
+    session.close()
 
     # Convert results to a dictionary
     tobs_results_dict = []
@@ -115,9 +119,14 @@ def temp_obs(start):
     # Create our session (link) from Python to the DB
     session = Session(engine)
 
+    """Return temp observations after a given start date"""
     # When given the start only, calculate TMIN, TAVG, and TMAX for all dates greater than and equal to the start date.
-    temp_results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).filter(Measurement.date >= start).all()
+    temp_results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+                   filter(Measurement.date >= start).all()
 
+    session.close()
+
+    # Convert results
     temps = {}
     temps['TMIN'] = temp_results[0][0]
     temps['TAVG'] = temp_results[0][1]
@@ -128,21 +137,26 @@ def temp_obs(start):
 
 
 # Create temp data route with date range
-@app.route("/api/v1.0/<start>")
-def temp_obs(start):
+@app.route("/api/v1.0/<start>/<end>")
+def temp_obs_range(start, end):
     # Create our session (link) from Python to the DB
     session = Session(engine)
 
-    # When given the start only, calculate TMIN, TAVG, and TMAX for all dates greater than and equal to the start date.
-    temp_results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).filter(Measurement.date >= start).all()
+    """Return temp observations within a given date range"""
+    # When given the start and the end date, calculate the TMIN, TAVG, and TMAX for dates between the start and end date inclusive.
+    range_results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+                    filter(Measurement.date >= start).filter(Measurement.date <= end).all()
 
-    temps = {}
-    temps['TMIN'] = temp_results[0][0]
-    temps['TAVG'] = temp_results[0][1]
-    temps['TMAX'] = temp_results[0][2]
+    session.close()
+    
+    # Convert results
+    temps_range = {}
+    temps_range['TMIN'] = range_results[0][0]
+    temps_range['TAVG'] = range_results[0][1]
+    temps_range['TMAX'] = range_results[0][2]
 
     # Return a JSON list of the minimum temperature, the average temperature, and the max temperature for a given start or start-end range.
-    return jsonify(temps)
+    return jsonify(temps_range)
 
 if __name__ == '__main__':
     app.run(debug=True)
